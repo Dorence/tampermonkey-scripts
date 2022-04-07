@@ -1,4 +1,4 @@
-/// <reference path="./hust_motherless.d.ts" />
+/// <reference path="./hust_wireless.d.ts" />
 /// <reference path="./tampermonkey.d.ts" />
 // ==UserScript==
 // @name         HUST Motherless
