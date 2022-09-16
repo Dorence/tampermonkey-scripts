@@ -1,4 +1,4 @@
-/** tampermonkey window */
+/** extends tampermonkey window */
 interface UnsafeWindow extends Window {
     captcha: any
     doauthen(): void
@@ -6,7 +6,7 @@ interface UnsafeWindow extends Window {
 }
 const unsafeWindow: UnsafeWindow;
 
-/** tampermonkey storage */
+/** extends tampermonkey storage */
 function GM_getValue(key: 'auth', defaults: string[]): string[];
 function GM_getValue(key: 'index', defaults: number): number;
 function GM_getValue(key: 'show-password', defaults: boolean): boolean;

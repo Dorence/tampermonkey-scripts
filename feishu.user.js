@@ -1,3 +1,4 @@
+/// <reference path="./tampermonkey.d.ts" />
 // ==UserScript==
 // @name         Feishu
 // @namespace    https://github.com/dorence
@@ -9,12 +10,11 @@
 // @grant        none
 // @require      https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.min.js
 // ==/UserScript==
-
+// ==/UserScript==
+// @ts-check
 (function() {
     'use strict';
     const $ = jQuery.noConflict(true); // jQuery
-    console.log($);
-    // Your code here...
 
     function getReact(el, type) {
         switch(type) {

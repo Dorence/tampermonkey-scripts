@@ -3,10 +3,11 @@
 // ==UserScript==
 // @name         HUST Motherless
 // @namespace    https://github.com/dorence
-// @version      0.3.3
+// @version      0.3.4
 // @description  For HUST Wireless authorization.
 // @author       Dorence DENG
 // @match        http://172.18.18.60:8080/eportal/*
+// @match        http://192.168.50.3:8080/eportal/*
 // @icon         https://mail.hust.edu.cn/favicon.ico
 // @grant        unsafeWindow
 // @grant        GM_addStyle
@@ -48,7 +49,7 @@
 }
 .mls-icon {
     background-repeat: no-repeat;
-    background-image: url(http://172.18.18.60:8081/eportal/interface/index_files/pc/portal.png);
+    background-image: url(interface/index_files/pc/portal.png);
     cursor: pointer;
     height: 16px;
     margin-top: 7px;
@@ -179,8 +180,9 @@
         E(suffix + '-auth').addEventListener('change', (ev) => {
             // @ts-ignore
             /** @type {string} */ const value = ev.target.value
-            console.log('[auth]', value);
-            Account.info = value.split('\n').filter(s => !!s)
+            const authArr = value.replace(/[\t,;]/g, ' ').split('\n');
+            console.log('[auth]', authArr);
+            Account.info = authArr.filter(s => !!s).map(s => s.trim());
             console.log(Account.info);
             GM_setValue('auth', Account.info);
             if (E('mlsQuickfill')) {
@@ -198,7 +200,7 @@
     /** @type {ImgRecJsConfig} */
     const RCFG = {
         DarkThreshold: 400,
-        Debug: true,
+        Debug: false,
         DiffThreshold: 16,
         PaddedWidth: 14,
         TotalDigits: 4,
@@ -206,6 +208,7 @@
     };
 
     const canvas1 = document.createElement("canvas");
+    /** @ts-ignore @type {CanvasRenderingContext2D} */
     const ctx1 = canvas1.getContext("2d");
 
     const canvas2 = document.createElement("canvas");
@@ -226,13 +229,13 @@
 
     /**
      * Init imgRecJs
-     * @param {HTMLImageElement} img 
+     * @param {HTMLImageElement} img captcha image
      * @returns {[number, number]}
      */
     function initAll(img) {
         if (!img) {
             console.error('invalid image', img);
-            return;
+            return [0, 0];
         }
         const w = img.naturalWidth || img.clientWidth;
         const h = img.naturalHeight || img.clientHeight;
@@ -250,6 +253,7 @@
     const numkeys = [
         [1, [24n, 248n, 504n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 56n, 511n]],
         [2, [1008n, 2040n, 3132n, 4126n, 4110n, 14n, 14n, 14n, 12n, 28n, 24n, 56n, 112n, 96n, 64n, 256n, 769n, 1539n, 4094n, 8190n]],
+        [2, [1008n, 2040n, 3132n, 4126n, 4110n, 14n, 14n, 12n, 12n, 24n, 24n, 48n, 96n, 64n, 0n, 256n, 769n, 1539n, 4094n, 8190n]],
         [3, [504n, 1020n, 30n, 14n, 14n, 14n, 12n, 24n, 120n, 508n, 62n, 15n, 15n, 7n, 7n, 7n, 6n, 3084n, 3864n, 2016n]],
         [4, [24n, 56n, 120n, 120n, 184n, 184n, 56n, 568n, 568n, 1080n, 1080n, 2104n, 6200n, 8191n, 8191n, 56n, 56n, 56n, 56n, 56n]],
         [5, [127n, 254n, 254n, 256n, 256n, 960n, 1008n, 2044n, 126n, 30n, 15n, 7n, 3n, 3n, 3n, 2n, 6n, 524n, 2040n, 992n]],
@@ -262,8 +266,8 @@
 
     /**
      * Draw given PixelData
-     * @param {CanvasRenderingContext2D} ctx 
-     * @param {PixelData} pixels 
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {PixelData} pixels
      */
     function drawPixels(ctx, pixels, dx = 0) {
         var imageData = pixelToImage(pixels);
@@ -272,7 +276,7 @@
 
     /**
      * 二值化图像
-     * @param {ImageData} imageData 
+     * @param {ImageData} imageData
      * @returns {ImageData}
      */
     function toHex(imageData) {
@@ -295,8 +299,8 @@
 
     /**
      * Simple corrosion
-     * @param {PixelData} fromArray 
-     * @returns 
+     * @param {PixelData} fromArray
+     * @returns
      */
     function corrode(fromArray) {
         for (var j = 1; j < fromArray.length - 1; j++) {
@@ -311,8 +315,8 @@
 
     /**
      * Simple expansion
-     * @param {PixelData} fromArray 
-     * @returns 
+     * @param {PixelData} fromArray
+     * @returns
      */
     function expand(fromArray) {
         for (var j = 1; j < fromArray.length - 1; j++) {
@@ -352,7 +356,7 @@
 
     /**
      * 清除上下的空白
-     * @param {PixelData} pixels 
+     * @param {PixelData} pixels
      * @returns {PixelData}
      */
     function trimUpDown(pixels) {
@@ -367,8 +371,8 @@
 
     /**
      * 尺寸归一化 PaddedWidth * ZoomedHeight
-     * @param {PixelData} pixels 
-     * @returns 
+     * @param {PixelData} pixels
+     * @returns
      */
     function fitImage(pixels) {
         const imageData = pixelToImage(pixels);
@@ -397,7 +401,7 @@
 
     /**
      * 生成特征码
-     * @param {PixelData} pixels 
+     * @param {PixelData} pixels
      * @returns {SigArray}
      */
     function getCode(pixels) {
@@ -411,7 +415,7 @@
      * @param {number?} resizeHeight resize to this height
      * @returns {PixelData} pixels
      */
-    function imageToPixel(imageData, resizeWidth = undefined, resizeHeight = undefined) {
+    function imageToPixel(imageData, resizeWidth = null, resizeHeight = null) {
         const w = resizeWidth || imageData.width;
         const h = resizeHeight || imageData.height;
         const idata = imageData.data;
@@ -435,7 +439,7 @@
      * @param {number?} resizeHeight resize to this height
      * @returns {ImageData} ImageDate
      */
-    function pixelToImage(pixels, resizeWidth = undefined, resizeHeight = undefined) {
+    function pixelToImage(pixels, resizeWidth = null, resizeHeight = null) {
         const w = resizeWidth || pixels[0].length;
         const h = resizeHeight || pixels.length;
         const imageData = ctx1.createImageData(w, h);
@@ -533,7 +537,6 @@
     /** index.jsp */
     function mainIndex() {
         console.log('run mainIndex');
-
         E('connectNetworkPageId').insertAdjacentHTML('afterbegin', `
 <div class="mls-container" id="mlsDiv">
     <input class="input" id="mlsInput" placeholder="paste here...">
