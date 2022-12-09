@@ -5,7 +5,7 @@
 // @description  try to take over the world!
 // @author       You
 // @match        https://steamdb.info/freepackages/*
-// @icon         https://icons.duckduckgo.com/ip2/steamdb.info.ico
+// @icon         https://steamdb.info/static/logos/32px.png
 // @grant        none
 // ==/UserScript==
 
