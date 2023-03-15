@@ -1,9 +1,8 @@
 /// <reference path="./hust_wireless.d.ts" />
-/// <reference path="./tampermonkey.d.ts" />
 // ==UserScript==
 // @name         HUST Motherless
 // @namespace    https://github.com/dorence
-// @version      0.3.4
+// @version      0.3.5
 // @description  For HUST Wireless authorization.
 // @author       Dorence DENG
 // @match        http://172.18.18.60:8080/eportal/*
@@ -16,7 +15,7 @@
 // @grant        GM_setValue
 // ==/UserScript==
 // @ts-check
-(function () {
+(() => {
     'use strict';
     // CSS
     GM_addStyle(`
@@ -70,8 +69,11 @@
     width: 332px;
 }
 .s-settings-wrapper>div {
-    width: 240px;
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
     margin: 4px;
+    width: 270px;
 }
 .s-settings-wrapper button {
     background-color: #43cf78;
@@ -87,14 +89,30 @@
 .s-settings-wrapper button:hover {
     background-color: #4caf50;
 }
+.s-settings-wrapper input[type=text] {
+    border: 1px solid #666;
+    border-radius: 5px;
+    padding: 4px 6px;
+    width: 180px;
+}
 .s-settings-wrapper textarea {
     border-radius: 6px;
     box-shadow: 1px 1px 1px #999;
-    max-width: 230px;
-    min-width: 230px;
+    min-width: 250px;
     min-height: 60px;
     padding: 10px;
-    width: 230px;
+}
+@media screen and (max-width: 960px) {
+td>#erweima {
+    min-width: unset !important;
+    padding: 10px !important;
+}
+td>#erweima>img {
+    width: 300px;
+}
+.s-settings-wrapper {
+    margin: 20px;
+}
 }
 `);
     // JS
@@ -103,24 +121,24 @@
 
     // @ts-ignore
     const E = /** @type {typeof GetElementById} @param {string} id */
-        function (id) { return id ? document.getElementById(id) : undefined; }
+        function(id) { return id ? document.getElementById(id) : undefined; }
 
     /** @param {HTMLElement} el */
     function RM(el) { el.parentElement && el.parentElement.removeChild(el); }
 
     // @ts-ignore
     const hidePassword = /** @type {typeof HidePassword} @param {string | string[]} info @param {boolean} show */
-        function (info, show) {
+        function(info, show) {
             if (show) return info;
             else if (Array.isArray(info)) return info.map(str => str.replace(/ .*/, ' ****'));
-            else if (typeof info === 'string') return info.replace(/ .*/, ' ****');
-            else return '[Error]';
+            return info.replace(/ +.*/, ' ****');
         }
 
     const Account = {
         info: GM_getValue('auth', []).filter(s => !!s),
         index: GM_getValue('index', 0),
         showPassword: GM_getValue('show-password', true),
+        auto: GM_getValue("auto-login", []),
         get value() {
             if (!Array.isArray(this.info) || this.info.length === 0) {
                 this.info = [];
@@ -157,6 +175,10 @@
         <div>
             <textarea id="${suffix}-auth" rows="${Math.max(Account.info.length, 5)}">${Account.info.join('\n')}</textarea>
         </div>
+        <div>
+        <label for="${suffix}-auto-login">自动登录</label>
+        <input type="text" id="${suffix}-auto-login" value="${Account.auto.join(',')}" placeholder="小时，逗号分隔"} />
+        </div>
         <div style="display: flex; justify-content: center;">
             <button id="${suffix}-close" style="width: 200px;"><span>&nbsp;关闭&nbsp;</span></button>
         </div>
@@ -189,6 +211,14 @@
                 E('mlsInput').value = Account.value;
                 E('mlsQuickfill').innerHTML = Account.list;
             }
+        });
+        E(suffix + '-auto-login').addEventListener('change', (ev) => {
+            // @ts-ignore
+            /** @type {string} */ const value = ev.target.value
+            const arr = value.replace(/[\t,;]/g, ' ').split(/ +/);
+            Account.auto = arr.map(s => Number(s)).filter(s => !!s || (s === 0));
+            console.log(Account.auto);
+            GM_setValue('auto-login', Account.auto);
         });
     });
 
@@ -299,34 +329,34 @@
 
     /**
      * Simple corrosion
-     * @param {PixelData} fromArray
+     * @param {PixelData} arr
      * @returns
      */
-    function corrode(fromArray) {
-        for (var j = 1; j < fromArray.length - 1; j++) {
-            for (var k = 1; k < fromArray[j].length - 1; k++) {
-                if (fromArray[j][k] == 1 && fromArray[j - 1][k] + fromArray[j + 1][k] + fromArray[j][k - 1] + fromArray[j][k + 1] == 0) {
-                    fromArray[j][k] = 0;
+    function corrode(arr) {
+        for (var j = 1; j < arr.length - 1; j++) {
+            for (var k = 1; k < arr[j].length - 1; k++) {
+                if (arr[j][k] == 1 && arr[j - 1][k] + arr[j + 1][k] + arr[j][k - 1] + arr[j][k + 1] == 0) {
+                    arr[j][k] = 0;
                 }
             }
         }
-        return fromArray;
+        return arr;
     }
 
     /**
      * Simple expansion
-     * @param {PixelData} fromArray
+     * @param {PixelData} arr
      * @returns
      */
-    function expand(fromArray) {
-        for (var j = 1; j < fromArray.length - 1; j++) {
-            for (var k = 1; k < fromArray[j].length - 1; k++) {
-                if (fromArray[j][k] == 0 && fromArray[j - 1][k] + fromArray[j + 1][k] + fromArray[j][k - 1] + fromArray[j][k + 1] == 4) {
-                    fromArray[j][k] = 1;
+    function expand(arr) {
+        for (var j = 1; j < arr.length - 1; j++) {
+            for (var k = 1; k < arr[j].length - 1; k++) {
+                if (arr[j][k] == 0 && arr[j - 1][k] + arr[j + 1][k] + arr[j][k - 1] + arr[j][k + 1] == 4) {
+                    arr[j][k] = 1;
                 }
             }
         }
-        return fromArray;
+        return arr;
     }
 
     /**
@@ -343,7 +373,6 @@
         for (let x = 0; x < w; x++) {
             if (pixels.every(v => v[x] === 0)) {
                 if (status && currNum === count) end = x;
-
                 status = false;
             }
             else {
@@ -379,12 +408,14 @@
 
         const tmpCanvas1 = document.createElement("canvas");
         const tmpCtx1 = tmpCanvas1.getContext("2d");
+        if(!tmpCtx1) throw 'tmpCtx1 is null';
         tmpCanvas1.width = pixels[0].length;
         tmpCanvas1.height = pixels.length;
         tmpCtx1.putImageData(imageData, 0, 0);
 
         const tmpCanvas2 = document.createElement("canvas");
         const tmpCtx2 = tmpCanvas2.getContext("2d");
+        if(!tmpCtx2) throw 'tmpCtx1 is null';
 
         if (tmpCanvas1.width <= RCFG.PaddedWidth) {
             tmpCtx2.fillStyle = 'white';
@@ -597,6 +628,7 @@
                 console.warn(res);
                 return res;
             }
+            return '';
         }
 
         E('mlsClear').onclick = function () { E('mlsInput').value = null; };
@@ -627,6 +659,11 @@
         unsafeWindow.captcha = { checkFeature, imcrack, numkeys, config: RCFG };
         setTimeout(() => {
             checkFeature();
+            const hours = new Date().getHours();
+            if(Array.isArray(Account.auto) && Account.auto.includes(hours)) {
+                console.log("Auto login @", hours);
+                E('aauth').click(); // automatic login
+            }
         }, 100);
     }
 
@@ -648,4 +685,4 @@
         case '/eportal/logout.jsp': mainLogout(); break;
         default: console.warn('Unknown page', location.pathname);
     }
-})();
+})()

@@ -1,10 +1,12 @@
+/// <reference path="./tampermonkey.d.ts" />
+
 /** extends tampermonkey window */
-interface UnsafeWindow extends Window {
+interface ThisUnsafeWindow extends UnsafeWindow {
     captcha: any
     doauthen(): void
     sureLogout(): void
 }
-const unsafeWindow: UnsafeWindow;
+const unsafeWindow: ThisUnsafeWindow;
 
 /** extends tampermonkey storage */
 function GM_getValue(key: 'auth', defaults: string[]): string[];
@@ -26,8 +28,8 @@ interface DomElementMap {
 function GetElementById<T extends keyof DomElementMap>(s: T): DomElementMap[T];
 function GetElementById(s: string): HTMLElement;
 
-function HidePassword(info: string, show: boolean): string;
-function HidePassword(info: string[], show: boolean): string[];
+declare function HidePassword(info: string, show: boolean): string;
+declare function HidePassword(info: string[], show: boolean): string[];
 
 /** (x,y) array */
 type PixelData = (0 | 1)[][];
