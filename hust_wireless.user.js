@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         HUST Motherless
 // @namespace    https://github.com/dorence
-// @version      0.3.5
+// @version      0.3.6
 // @description  For HUST Wireless authorization.
 // @author       Dorence DENG
 // @match        http://172.18.18.60:8080/eportal/*
@@ -121,23 +121,125 @@ td>#erweima>img {
 
     // @ts-ignore
     const E = /** @type {typeof GetElementById} @param {string} id */
-        function(id) { return id ? document.getElementById(id) : undefined; }
+        function (id) { return id ? document.getElementById(id) : undefined; }
 
     /** @param {HTMLElement} el */
     function RM(el) { el.parentElement && el.parentElement.removeChild(el); }
 
     // @ts-ignore
     const hidePassword = /** @type {typeof HidePassword} @param {string | string[]} info @param {boolean} show */
-        function(info, show) {
+        function (info, show) {
             if (show) return info;
             else if (Array.isArray(info)) return info.map(str => str.replace(/ .*/, ' ****'));
             return info.replace(/ +.*/, ' ****');
         }
 
+    const NumberInterval = {
+        /**
+         * @example '0,2-4,6' -> [0, [2, 4], 6]
+         * @example '0,1-6,9,10,11,16-17' -> [[0, 7], [9, 11], 16, 17]
+         * @param {string} str
+         * @returns {NumIntr}
+         */
+        fromString(str) {
+            /** @type {NumIntr} */ const ret = [];
+            const arr = str.replace(/[\t,;]/g, ' ').split(/ +/).filter(s => !s.match(/^\s*$/));
+            for (const s of arr) {
+                const p = s.indexOf("-");
+                if (p >= 0) {
+                    const n1 = NumberInterval.validateInteger(s.substring(0, p));
+                    const n2 = NumberInterval.validateInteger(s.substring(p + 1));
+                    if (n1 !== null && n2 !== null && n2 >= n1) {
+                        ret.push([n1, n2]);
+                    }
+                }
+                else {
+                    const n = NumberInterval.validateInteger(s);
+                    if (n !== null) {
+                        ret.push(n);
+                    }
+                }
+            }
+            return NumberInterval.wellFormed(ret);
+        },
+        /** @param {NumIntr} intr @returns {string} */
+        toString(intr) {
+            return intr.map(v => Array.isArray(v) ? `${v[0]}-${v[1]}` : v).join(',');
+        },
+
+        /**
+         * @example [0, [1, 6], 9, 10, 11, [16, 17]] -> [[0, 7], [9, 11], 16, 17]
+         * @param {NumIntr} intr
+         * @returns {NumIntr}
+         */
+        wellFormed(intr) {
+            /** @type {NumIntr} */ const ret = [];
+            const arr = Array.from(intr).sort((x, y) => {
+                if (typeof x === 'number') {
+                    return typeof y === 'number' ? (x - y) : (x - y[0]);
+                }
+                else if (typeof y === 'number') {
+                    return x[0] - y;
+                }
+                else {
+                    return x[0] === y[0] ? (x[1] - y[1]) : (x[0] - y[0]);
+                }
+            });
+            for (let i = 0; i < arr.length; i++) {
+                /** @type {number} */ const n1 = typeof arr[i] === 'number' ? arr[i] : arr[i][0];
+                /** @type {number} */ let n2 = typeof arr[i] === 'number' ? arr[i] : arr[i][1];
+                while (i + 1 < arr.length) {
+                    const v = arr[i + 1];
+                    if (typeof v === 'number' && v <= n2 + 1) {
+                        n2 = Math.max(n2, v);
+                        i++;
+                    }
+                    else if (Array.isArray(v) && v[0] <= n2 + 1) {
+                        n2 = Math.max(n2, v[1]);
+                        i++;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                if (n1 < n2) {
+                    ret.push([n1, n2]);
+                }
+                else {
+                    ret.push(n1);
+                }
+            }
+            return ret;
+        },
+
+        /** @param {*} any @returns {number | null} */
+        validateInteger(any) {
+            const n = typeof any === 'number' ? any : Number(any);
+            return (!isNaN(n) && isFinite(n)) ? Math.floor(n) : null;
+        },
+
+        /**
+         * @param {NumIntr} intr
+         * @param {number} num
+         */
+        includes(intr, num) {
+            for (const v of intr) {
+                if (typeof v === 'number' && v === num) {
+                    return true;
+                }
+                else if (Array.isArray(v) && v[0] <= num && v[1] >= num) {
+                    return true;
+                }
+            }
+            return false;
+        },
+    };
+
     const Account = {
         info: GM_getValue('auth', []).filter(s => !!s),
         index: GM_getValue('index', 0),
         showPassword: GM_getValue('show-password', true),
+        /** @type {NumIntr} */
         auto: GM_getValue("auto-login", []),
         get value() {
             if (!Array.isArray(this.info) || this.info.length === 0) {
@@ -177,7 +279,7 @@ td>#erweima>img {
         </div>
         <div>
         <label for="${suffix}-auto-login">自动登录</label>
-        <input type="text" id="${suffix}-auto-login" value="${Account.auto.join(',')}" placeholder="小时，逗号分隔"} />
+        <input type="text" id="${suffix}-auto-login" value="${NumberInterval.toString(Account.auto)}" placeholder="小时, 例如: 0,9,12-20,23"} />
         </div>
         <div style="display: flex; justify-content: center;">
             <button id="${suffix}-close" style="width: 200px;"><span>&nbsp;关闭&nbsp;</span></button>
@@ -190,7 +292,7 @@ td>#erweima>img {
         E(suffix + '-close').addEventListener('click', () => { RM(E(suffix + '-container')); });
         E(suffix + '-show-password').addEventListener('change', (ev) => {
             // @ts-ignore
-            /** @type {boolean} */ const checked = ev.target.checked
+            /** @type {boolean} */ const checked = ev.target.checked;
             console.log('[show-password]', checked);
             Account.showPassword = checked;
             GM_setValue('show-password', Account.showPassword);
@@ -201,11 +303,11 @@ td>#erweima>img {
         });
         E(suffix + '-auth').addEventListener('change', (ev) => {
             // @ts-ignore
-            /** @type {string} */ const value = ev.target.value
+            /** @type {string} */ const value = ev.target.value;
             const authArr = value.replace(/[\t,;]/g, ' ').split('\n');
             console.log('[auth]', authArr);
             Account.info = authArr.filter(s => !!s).map(s => s.trim());
-            console.log(Account.info);
+            console.log('info', Account.info);
             GM_setValue('auth', Account.info);
             if (E('mlsQuickfill')) {
                 E('mlsInput').value = Account.value;
@@ -214,10 +316,10 @@ td>#erweima>img {
         });
         E(suffix + '-auto-login').addEventListener('change', (ev) => {
             // @ts-ignore
-            /** @type {string} */ const value = ev.target.value
-            const arr = value.replace(/[\t,;]/g, ' ').split(/ +/);
-            Account.auto = arr.map(s => Number(s)).filter(s => !!s || (s === 0));
-            console.log(Account.auto);
+            /** @type {string} */ const value = ev.target.value;
+            console.log(value);
+            Account.auto = NumberInterval.fromString(value);
+            console.log('auto', Account.auto);
             GM_setValue('auto-login', Account.auto);
         });
     });
@@ -242,9 +344,11 @@ td>#erweima>img {
     const ctx1 = canvas1.getContext("2d");
 
     const canvas2 = document.createElement("canvas");
+    /** @ts-ignore @type {CanvasRenderingContext2D} */
     const ctx2 = canvas2.getContext("2d");
 
     const canvas3 = document.createElement("canvas");
+    /** @ts-ignore @type {CanvasRenderingContext2D} */
     const ctx3 = canvas3.getContext("2d");
 
     if (RCFG.Debug) {
@@ -505,8 +609,8 @@ td>#erweima>img {
 
     /**
      * calculate difference
-     * @param {SigArray} sig 
-     * @param {SigArray} feature 
+     * @param {SigArray} sig
+     * @param {SigArray} feature
      */
     function calcDiff(sig, feature) {
         if (sig.length !== feature.length) {
@@ -631,7 +735,10 @@ td>#erweima>img {
             return '';
         }
 
-        E('mlsClear').onclick = function () { E('mlsInput').value = null; };
+        E('mlsClear').onclick = function () {
+            // @ts-ignore
+            E('mlsInput').value = null;
+        };
         E('aauth').onclick = function () {
             let v = E('mlsInput').value;
             if (typeof v !== 'string') {
@@ -660,7 +767,7 @@ td>#erweima>img {
         setTimeout(() => {
             checkFeature();
             const hours = new Date().getHours();
-            if(Array.isArray(Account.auto) && Account.auto.includes(hours)) {
+            if (NumberInterval.includes(Account.auto, hours)) {
                 console.log("Auto login @", hours);
                 E('aauth').click(); // automatic login
             }
